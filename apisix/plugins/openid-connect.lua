@@ -131,6 +131,25 @@ local schema = {
             type = "boolean",
             default = false
         }
+        claim_validators = {
+            type = "array",
+            items = {
+                type = "object"
+                properties = {
+                    claim = {
+                        type = "string"
+                        minLength = 1
+                    }
+                    matches = {
+                        type = "array"
+                        items = {
+                            type = "string"
+                            minLength = 1
+                        }
+                    }
+                }
+            }
+        }
     },
     encrypt_fields = {"client_secret"},
     required = {"client_id", "client_secret", "discovery"}
@@ -243,6 +262,13 @@ local function introspect(ctx, conf)
             return ngx.HTTP_UNAUTHORIZED, err, nil, nil
         end
 
+        local err = validate_claims(ctx, conf, token)
+        if err then
+            ngx.header["WWW-Authenticate"] = 'Bearer realm="' .. conf.realm ..
+                '", error="invalid_token", error_description="' .. err .. '"'
+            return ngx.HTTP_UNAUTHORIZED, err, nil, nil
+        end
+
         -- Token successfully validated.
         local method = (conf.public_key and "public_key") or (conf.use_jwks and "jwks")
         core.log.debug("token validate successfully by ", method)
@@ -285,6 +311,21 @@ local function add_access_token_header(ctx, conf, token)
     end
 end
 
+local function validate_claims(ctx, conf, token)
+    for validator in conf.claim_validators.items do
+        if token[validator.claim] do
+            for match in validator.matches do
+                if string.match(token[validator.claim], match) do
+                    return nil
+                end
+            end
+            return "failed matching " .. validator.claim .. " claim"
+        end
+        return "missing " .. validator.claim .. " claim"
+    end
+    -- All validators finished successfully
+    return nil
+end
 
 function _M.rewrite(plugin_conf, ctx)
     local conf = core.table.clone(plugin_conf)
