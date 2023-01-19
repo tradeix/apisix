@@ -130,20 +130,20 @@ local schema = {
                 "header to the request for downstream.",
             type = "boolean",
             default = false
-        }
+        },
         claim_validators = {
             type = "array",
             items = {
-                type = "object"
+                type = "object",
                 properties = {
                     claim = {
-                        type = "string"
+                        type = "string",
                         minLength = 1
-                    }
+                    },
                     matches = {
-                        type = "array"
+                        type = "array",
                         items = {
-                            type = "string"
+                            type = "string",
                             minLength = 1
                         }
                     }
@@ -313,9 +313,9 @@ end
 
 local function validate_claims(ctx, conf, token)
     for validator in conf.claim_validators.items do
-        if token[validator.claim] do
+        if token[validator.claim] then
             for match in validator.matches do
-                if string.match(token[validator.claim], match) do
+                if string.match(token[validator.claim], match) then
                     return nil
                 end
             end
